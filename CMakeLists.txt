@@ -6,8 +6,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_EDGE_MODULES")
 
 set(AZUREIOT_INC_FOLDER "/usr/include/azureiot" "/usr/include/azureiot/inc")
 
-add_compile_options(-std=c++14)
-
 find_package(catkin REQUIRED COMPONENTS
   message_generation
   roscpp
@@ -25,11 +23,14 @@ generate_messages(
   std_msgs
 )
 
-catkin_package(
+add_library(parson STATIC
+  parson/parson.c
+  parson/parson.h
 )
 
 include_directories(
   "include"
+  parson
   ${catkin_INCLUDE_DIRS}
   ${AZUREIOT_INC_FOLDER}
 )

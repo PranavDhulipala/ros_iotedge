@@ -16,34 +16,39 @@
 #include "iothubtransportmqtt.h"
 #include "iothub.h"
 #include "time.h"
+#include <parson.h>
 
 
 class ROSIoTEdge{
 
 public:
 
-  ROSIoTEdge(ros::NodeHandle* n):node_(*n){};
+  explicit ROSIoTEdge(ros::NodeHandle* n);
 
   static IOTHUBMESSAGE_DISPOSITION_RESULT InputQueue1Callback(IOTHUB_MESSAGE_HANDLE message, void* userContextCallback);
 
-  static IOTHUB_MODULE_CLIENT_LL_HANDLE InitializeConnection();
+  IOTHUB_MODULE_CLIENT_LL_HANDLE InitializeConnection();
 
-  static void DeInitializeConnection(IOTHUB_MODULE_CLIENT_LL_HANDLE iotHubModuleClientHandle);
+  void DeInitializeConnection(IOTHUB_MODULE_CLIENT_LL_HANDLE iotHubModuleClientHandle);
 
-  static int SetupCallbacksForModule(IOTHUB_MODULE_CLIENT_LL_HANDLE iotHubModuleClientHandle);
+  int SetupCallbacksForModule(IOTHUB_MODULE_CLIENT_LL_HANDLE iotHubModuleClientHandle);
 
   void iothub_module();
 
-  ~ROSIoTEdge(){};
+  void PublishFromMsg(unsigned const char* message);
+
+  ~ROSIoTEdge();
 
 private:
-
-  size_t messagesReceivedByInput1Queue = 0;
 
   ros::NodeHandle node_;
 
   ros::Publisher bbox_publisher_;
 
+  static ROSIoTEdge* ptr;
+
 };
+
+ROSIoTEdge* ROSIoTEdge::ptr = nullptr;
 
 #endif

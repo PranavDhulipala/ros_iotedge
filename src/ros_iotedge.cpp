@@ -1,9 +1,15 @@
 #include "ros_iotedge/ros_iotedge.h"
 
+
+ROSIoTEdge::ROSIoTEdge(ros::NodeHandle* n):node_(*n)
+{
+    bbox_publisher_ = node_.advertise<ros_iotedge::BBox>("bounding_box", 1000);
+    ptr = this;
+}
+
 IOTHUBMESSAGE_DISPOSITION_RESULT ROSIoTEdge::InputQueue1Callback(IOTHUB_MESSAGE_HANDLE message, void* userContextCallback)
 {
     IOTHUBMESSAGE_DISPOSITION_RESULT result;
-    // IOTHUB_CLIENT_RESULT clientResult;
     IOTHUB_MODULE_CLIENT_LL_HANDLE iotHubModuleClientHandle = (IOTHUB_MODULE_CLIENT_LL_HANDLE)userContextCallback;
 
     unsigned const char* messageBody;
@@ -15,6 +21,8 @@ IOTHUBMESSAGE_DISPOSITION_RESULT ROSIoTEdge::InputQueue1Callback(IOTHUB_MESSAGE_
     }
 
     ROS_INFO("Data: [%s]", messageBody);
+
+    ptr->PublishFromMsg(messageBody);
 
     result = IOTHUBMESSAGE_ACCEPTED;
 
@@ -83,12 +91,55 @@ void ROSIoTEdge::iothub_module()
         while (true)
         {
             IoTHubModuleClient_LL_DoWork(iotHubModuleClientHandle);
+            // ros::spin();
             ThreadAPI_Sleep(100);
         }
     }
 
     DeInitializeConnection(iotHubModuleClientHandle);
 }
+
+void ROSIoTEdge::PublishFromMsg(unsigned const char* message)
+{
+    ros_iotedge::BBox msg;
+    JSON_Value *root_value = json_parse_string((const char *)message);
+    JSON_Object *root_object = json_value_get_object(root_value);
+    if (root_object)
+    {
+      JSON_Array *nn_array = json_object_get_array(root_object, "NEURAL_NETWORK");
+      if (nn_array)
+      {
+        size_t sz = json_array_get_count(nn_array);
+        if (sz)
+        {
+          JSON_Object *nn_object = json_array_get_object(nn_array, 0);
+          JSON_Array *bbox_array = json_object_get_array(nn_object, "bbox");
+          if (bbox_array)
+          {
+            size_t count = json_array_get_count(bbox_array);
+            for (size_t i = 0; i < count; i++)
+            {
+              float value = (float)json_array_get_number(bbox_array, i);
+              msg.box.push_back(value);
+            }
+          }
+          std::string label = json_object_dotget_string(nn_object, "label");
+          msg.header.frame_id = label;
+          float confidence = std::stof(json_object_dotget_string(nn_object, "confidence"));
+          msg.confidence = confidence;
+          std::string timestamp = json_object_dotget_string(nn_object, "timestamp");
+          std::string sub1 = timestamp.substr(0, 10);
+          std::string sub2 = timestamp.substr(10);
+          ros::Time time(std::stoul(sub1), std::stoul(sub2));
+          msg.header.stamp = time;
+          bbox_publisher_.publish(msg);
+        }
+      }
+    }
+        
+}
+
+ROSIoTEdge::~ROSIoTEdge(){};
 
 int main(int argc, char **argv)
 {

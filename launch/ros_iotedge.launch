@@ -1,4 +1,3 @@
 <launch>
   <node name="ros_iotedge" pkg="ros_iotedge" type="ros_iotedge" output="screen"/>
-  <include file="$(find video_stream_opencv)/launch/rtsp_stream.launch"/>
 </launch>

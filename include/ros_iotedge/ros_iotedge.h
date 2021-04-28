@@ -17,6 +17,7 @@
 #include "iothub.h"
 #include "time.h"
 #include <parson.h>
+#include <geometry_msgs/Twist.h>
 
 
 class ROSIoTEdge{
@@ -27,6 +28,8 @@ public:
 
   static IOTHUBMESSAGE_DISPOSITION_RESULT InputQueue1Callback(IOTHUB_MESSAGE_HANDLE message, void* userContextCallback);
 
+  static IOTHUBMESSAGE_DISPOSITION_RESULT InputQueue2Callback(IOTHUB_MESSAGE_HANDLE message, void* userContextCallback);
+
   IOTHUB_MODULE_CLIENT_LL_HANDLE InitializeConnection();
 
   void DeInitializeConnection(IOTHUB_MODULE_CLIENT_LL_HANDLE iotHubModuleClientHandle);
@@ -35,7 +38,9 @@ public:
 
   void iothub_module();
 
-  void PublishFromMsg(unsigned const char* message);
+  void PublishFromEyeMsg(unsigned const char* message);
+
+  void PublishFromSpeechMsg(unsigned const char* message);
 
   ~ROSIoTEdge();
 
@@ -44,6 +49,14 @@ private:
   ros::NodeHandle node_;
 
   ros::Publisher bbox_publisher_;
+
+  ros::Publisher vel_publisher_;
+
+  double rate_ = 10.0;
+
+  double move_time_ = 6.0;
+
+  double turn_time_ = 3.0;
 
   static ROSIoTEdge* ptr;
 

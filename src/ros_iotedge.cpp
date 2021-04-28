@@ -4,6 +4,7 @@
 ROSIoTEdge::ROSIoTEdge(ros::NodeHandle* n):node_(*n)
 {
     bbox_publisher_ = node_.advertise<ros_iotedge::BBox>("bounding_box", 1000);
+    vel_publisher_ = node_.advertise<geometry_msgs::Twist>("cmd_vel", 1000);
     ptr = this;
 }
 
@@ -22,7 +23,29 @@ IOTHUBMESSAGE_DISPOSITION_RESULT ROSIoTEdge::InputQueue1Callback(IOTHUB_MESSAGE_
 
     ROS_INFO("Data: [%s]", messageBody);
 
-    ptr->PublishFromMsg(messageBody);
+    ptr->PublishFromEyeMsg(messageBody);
+
+    result = IOTHUBMESSAGE_ACCEPTED;
+
+    return result;
+}
+
+IOTHUBMESSAGE_DISPOSITION_RESULT ROSIoTEdge::InputQueue2Callback(IOTHUB_MESSAGE_HANDLE message, void* userContextCallback)
+{
+    IOTHUBMESSAGE_DISPOSITION_RESULT result;
+    IOTHUB_MODULE_CLIENT_LL_HANDLE iotHubModuleClientHandle = (IOTHUB_MODULE_CLIENT_LL_HANDLE)userContextCallback;
+
+    unsigned const char* messageBody;
+    size_t contentSize;
+
+    if (IoTHubMessage_GetByteArray(message, &messageBody, &contentSize) != IOTHUB_MESSAGE_OK)
+    {
+        messageBody = reinterpret_cast<const unsigned char *>("<null>");
+    }
+
+    ROS_INFO("Data: [%s]", messageBody);
+
+    ptr->PublishFromSpeechMsg(messageBody);
 
     result = IOTHUBMESSAGE_ACCEPTED;
 
@@ -65,9 +88,9 @@ int ROSIoTEdge::SetupCallbacksForModule(IOTHUB_MODULE_CLIENT_LL_HANDLE iotHubMod
 {
     int ret;
 
-    if (IoTHubModuleClient_LL_SetInputMessageCallback(iotHubModuleClientHandle, "AzureEyeModuleInput", InputQueue1Callback, (void*) iotHubModuleClientHandle) != IOTHUB_CLIENT_OK)
+    if ((IoTHubModuleClient_LL_SetInputMessageCallback(iotHubModuleClientHandle, "AzureEyeModuleInput", InputQueue1Callback, (void*) iotHubModuleClientHandle) != IOTHUB_CLIENT_OK) || (IoTHubModuleClient_LL_SetInputMessageCallback(iotHubModuleClientHandle, "AzureSpeechModuleInput", InputQueue2Callback, (void*) iotHubModuleClientHandle) != IOTHUB_CLIENT_OK))
     {
-        ROS_ERROR("ERROR: IoTHubModuleClient_LL_SetInputMessageCallback(\"input1\")..........FAILED!");
+        printf("ERROR: IoTHubModuleClient_LL_SetInputMessageCallback(\"input\")..........FAILED!\r\n");
         ret = 1;
     }
     else
@@ -91,7 +114,6 @@ void ROSIoTEdge::iothub_module()
         while (true)
         {
             IoTHubModuleClient_LL_DoWork(iotHubModuleClientHandle);
-            // ros::spin();
             ThreadAPI_Sleep(100);
         }
     }
@@ -99,7 +121,7 @@ void ROSIoTEdge::iothub_module()
     DeInitializeConnection(iotHubModuleClientHandle);
 }
 
-void ROSIoTEdge::PublishFromMsg(unsigned const char* message)
+void ROSIoTEdge::PublishFromEyeMsg(unsigned const char* message)
 {
     ros_iotedge::BBox msg;
     JSON_Value *root_value = json_parse_string((const char *)message);
@@ -139,6 +161,114 @@ void ROSIoTEdge::PublishFromMsg(unsigned const char* message)
         
 }
 
+void ROSIoTEdge::PublishFromSpeechMsg(unsigned const char* message)
+{
+    geometry_msgs::Twist msg;
+    std::string str = std::string(reinterpret_cast<const char *>(message));
+    std::string response = "botResponse";
+    std::string forward = "Ok, moving forward";
+    std::string backward = "Ok, moving backward";
+    std::string left = "Ok, turning left";
+    std::string right = "Ok, turning right";
+    std::string stop = "Ok, stopping";
+    if(str.find(response)!= std::string::npos)
+    {
+        if(str.find(forward)!= std::string::npos)
+        {
+          msg.linear.x = 1;
+          ros::Rate r(rate_);
+          ros::Time s1 = ros::Time::now();
+          ros::Duration t1(move_time_);
+          while(ros::Time::now() - s1 < t1)
+          {
+            vel_publisher_.publish(msg);
+            r.sleep();
+          }
+          msg.linear.x = 0;
+          ros::Time s2 = ros::Time::now();
+          ros::Duration t2(move_time_);
+          while(ros::Time::now() - s2 < t2)
+          {
+            vel_publisher_.publish(msg);
+            r.sleep();
+          }
+        } 
+        if(str.find(left)!= std::string::npos)
+        {
+          msg.angular.z = 1;
+          ros::Rate r(rate_);
+          ros::Time s1 = ros::Time::now();
+          ros::Duration t1(turn_time_);
+          while(ros::Time::now() - s1 < t1)
+          {
+            vel_publisher_.publish(msg);
+            r.sleep();
+          }
+          msg.angular.z = 0;
+          ros::Time s2 = ros::Time::now();
+          ros::Duration t2(turn_time_);
+          while(ros::Time::now() - s2 < t2)
+          {
+            vel_publisher_.publish(msg);
+            r.sleep();
+          }
+        }
+        if(str.find(backward)!= std::string::npos)
+        {
+          msg.linear.x = -1;
+          ros::Rate r(rate_);
+          ros::Time s1 = ros::Time::now();
+          ros::Duration t1(move_time_);
+          while(ros::Time::now() - s1 < t1)
+          {
+            vel_publisher_.publish(msg);
+            r.sleep();
+          }
+          msg.linear.x = 0;
+          ros::Time s2 = ros::Time::now();
+          ros::Duration t2(move_time_);
+          while(ros::Time::now() - s2 < t2)
+          {
+            vel_publisher_.publish(msg);
+            r.sleep();
+          }
+        }
+        if(str.find(right)!= std::string::npos)
+        {
+          msg.angular.z = -1;
+          ros::Rate r(rate_);
+          ros::Time s1 = ros::Time::now();
+          ros::Duration t1(turn_time_);
+          while(ros::Time::now() - s1 < t1)
+          {
+            vel_publisher_.publish(msg);
+            r.sleep();
+          }
+          msg.angular.z = 0;
+          ros::Time s2 = ros::Time::now();
+          ros::Duration t2(turn_time_);
+          while(ros::Time::now() - s2 < t2)
+          {
+            vel_publisher_.publish(msg);
+            r.sleep();
+          }
+        }
+        if(str.find(stop)!= std::string::npos)
+        {
+          msg.linear.x = 0;
+          msg.angular.z = 0;
+          ros::Rate r(rate_);
+          ros::Time s1 = ros::Time::now();
+          ros::Duration t1(move_time_);
+          while(ros::Time::now() - s1 < t1)
+          {
+            vel_publisher_.publish(msg);
+            r.sleep();
+          }
+        }        
+      
+    }        
+}
 ROSIoTEdge::~ROSIoTEdge(){};
 
 int main(int argc, char **argv)
